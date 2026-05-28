@@ -1,10 +1,12 @@
+import re
+
 from django import forms
 from django.contrib.auth import authenticate
 from django.contrib.auth.forms import PasswordChangeForm as DjangoPasswordChangeForm
 from django.core.validators import RegexValidator
-import re
 
 from .models import User
+from .utils import normalize_phone, validate_github_url
 
 
 # ──────────────────────────────────────────────
@@ -13,14 +15,8 @@ from .models import User
 
 phone_validator = RegexValidator(
     regex=r'^(\+7|8)\d{10}$',
-    message='Введите номер в формате 8XXXXXXXXXX или +7XXXXXXXXXX'
+    message='Введите номер в формате 8XXXXXXXXXX или +7XXXXXXXXXX',
 )
-
-
-def validate_github_url(value):
-    """Проверяет, что ссылка ведёт на github.com"""
-    if value and 'github.com' not in value:
-        raise forms.ValidationError('Ссылка должна вести на GitHub (github.com)')
 
 
 # ──────────────────────────────────────────────
@@ -28,14 +24,14 @@ def validate_github_url(value):
 # ──────────────────────────────────────────────
 
 class RegistrationForm(forms.ModelForm):
-    """Форма создания нового пользователя"""
-    
+    """Форма создания нового пользователя."""
+
     password = forms.CharField(
         label='Пароль',
         widget=forms.PasswordInput(attrs={
             'class': 'form__input',
-            'placeholder': 'Введите пароль'
-        })
+            'placeholder': 'Введите пароль',
+        }),
     )
 
     class Meta:
@@ -44,15 +40,15 @@ class RegistrationForm(forms.ModelForm):
         widgets = {
             'name': forms.TextInput(attrs={
                 'class': 'form__input',
-                'placeholder': 'Имя'
+                'placeholder': 'Имя',
             }),
             'surname': forms.TextInput(attrs={
                 'class': 'form__input',
-                'placeholder': 'Фамилия'
+                'placeholder': 'Фамилия',
             }),
             'email': forms.EmailInput(attrs={
                 'class': 'form__input',
-                'placeholder': 'Email'
+                'placeholder': 'Email',
             }),
         }
         labels = {
@@ -74,21 +70,21 @@ class RegistrationForm(forms.ModelForm):
 # ──────────────────────────────────────────────
 
 class AuthenticationForm(forms.Form):
-    """Форма входа в систему"""
-    
+    """Форма входа в систему."""
+
     email = forms.EmailField(
         label='Email',
         widget=forms.EmailInput(attrs={
             'class': 'form__input',
-            'placeholder': 'Введите email'
-        })
+            'placeholder': 'Введите email',
+        }),
     )
     password = forms.CharField(
         label='Пароль',
         widget=forms.PasswordInput(attrs={
             'class': 'form__input',
-            'placeholder': 'Введите пароль'
-        })
+            'placeholder': 'Введите пароль',
+        }),
     )
 
     def __init__(self, *args, **kwargs):
@@ -105,7 +101,7 @@ class AuthenticationForm(forms.Form):
             self._cached_user = authenticate(
                 self.request,
                 username=email,
-                password=password
+                password=password,
             )
             if self._cached_user is None:
                 raise forms.ValidationError('Неверный имейл или пароль')
@@ -123,15 +119,15 @@ class AuthenticationForm(forms.Form):
 # ──────────────────────────────────────────────
 
 class ProfileEditForm(forms.ModelForm):
-    """Форма редактирования данных профиля"""
-    
+    """Форма редактирования данных профиля."""
+
     phone = forms.CharField(
         label='Телефон',
         validators=[phone_validator],
         widget=forms.TextInput(attrs={
             'class': 'form__input',
-            'placeholder': '8XXXXXXXXXX или +7XXXXXXXXXX'
-        })
+            'placeholder': '8XXXXXXXXXX или +7XXXXXXXXXX',
+        }),
     )
     github_url = forms.URLField(
         label='GitHub',
@@ -139,8 +135,8 @@ class ProfileEditForm(forms.ModelForm):
         validators=[validate_github_url],
         widget=forms.URLInput(attrs={
             'class': 'form__input',
-            'placeholder': 'https://github.com/username'
-        })
+            'placeholder': 'https://github.com/username',
+        }),
     )
 
     class Meta:
@@ -152,7 +148,7 @@ class ProfileEditForm(forms.ModelForm):
             'about': forms.Textarea(attrs={
                 'class': 'form__textarea',
                 'rows': 4,
-                'placeholder': 'Расскажите о себе'
+                'placeholder': 'Расскажите о себе',
             }),
         }
         labels = {
@@ -165,19 +161,11 @@ class ProfileEditForm(forms.ModelForm):
         }
 
     def clean_phone(self):
-        """Приводит номер к единому формату +7XXXXXXXXXX"""
-        phone = self.cleaned_data.get('phone')
-        if phone:
-            phone = re.sub(r'\D', '', phone)
-            if phone.startswith('8'):
-                phone = '+7' + phone[1:]
-            elif phone.startswith('7'):
-                phone = '+' + phone
-            # Проверка уникальности
-            existing = User.objects.filter(phone=phone).exclude(pk=self.instance.pk)
-            if existing.exists():
-                raise forms.ValidationError('Пользователь с таким номером уже существует')
-        return phone
+        """Делегирует нормализацию и проверку уникальности в utils."""
+        return normalize_phone(
+            self.cleaned_data.get('phone'),
+            instance_pk=self.instance.pk,
+        )
 
 
 # ──────────────────────────────────────────────
@@ -185,26 +173,26 @@ class ProfileEditForm(forms.ModelForm):
 # ──────────────────────────────────────────────
 
 class PasswordChangeForm(DjangoPasswordChangeForm):
-    """Форма изменения пароля"""
-    
+    """Форма изменения пароля."""
+
     old_password = forms.CharField(
         label='Текущий пароль',
         widget=forms.PasswordInput(attrs={
             'class': 'form__input',
-            'placeholder': 'Текущий пароль'
-        })
+            'placeholder': 'Текущий пароль',
+        }),
     )
     new_password1 = forms.CharField(
         label='Новый пароль',
         widget=forms.PasswordInput(attrs={
             'class': 'form__input',
-            'placeholder': 'Новый пароль'
-        })
+            'placeholder': 'Новый пароль',
+        }),
     )
     new_password2 = forms.CharField(
         label='Подтверждение',
         widget=forms.PasswordInput(attrs={
             'class': 'form__input',
-            'placeholder': 'Повторите новый пароль'
-        })
+            'placeholder': 'Повторите новый пароль',
+        }),
     )
